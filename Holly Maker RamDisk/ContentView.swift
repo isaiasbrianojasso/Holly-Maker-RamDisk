@@ -505,6 +505,7 @@ struct ContentView: View {
         try runProcess(executable: "/usr/bin/unzip", arguments: ["-qq", "-o", ipswURL.path, "-d", extractionURL.path])
 
         let extractedFiles = try collectFiles(in: extractionURL)
+        let manifestPaths = try buildManifestArtifactPaths(in: extractionURL)
         let mappings: [(ArtifactKind, String)] = [
             (.ibss, bundle.iBSSPath),
             (.ibec, bundle.iBECPath),
@@ -516,7 +517,7 @@ struct ContentView: View {
         ]
 
         for (kind, destinationPath) in mappings {
-            guard let sourceURL = bestMatch(for: kind, in: extractedFiles) else {
+            guard let sourceURL = sourceURL(for: kind, manifestPaths: manifestPaths, extractionURL: extractionURL, extractedFiles: extractedFiles) else {
                 appendLog("No encontrado en IPSW: \(kind.displayName)")
                 continue
             }
@@ -567,6 +568,92 @@ struct ContentView: View {
             let values = try url.resourceValues(forKeys: Set(resourceKeys))
             return values.isRegularFile == true ? url : nil
         }
+    }
+
+    private func sourceURL(for kind: ArtifactKind, manifestPaths: [ArtifactKind: String], extractionURL: URL, extractedFiles: [URL]) -> URL? {
+        if let relativePath = manifestPaths[kind] {
+            let manifestURL = extractionURL.appendingPathComponent(relativePath)
+            if FileManager.default.fileExists(atPath: manifestURL.path) {
+                return manifestURL
+            }
+        }
+
+        return bestMatch(for: kind, in: extractedFiles)
+    }
+
+    private func buildManifestArtifactPaths(in extractionURL: URL) throws -> [ArtifactKind: String] {
+        let manifestURL = extractionURL.appendingPathComponent("BuildManifest.plist")
+        guard FileManager.default.fileExists(atPath: manifestURL.path) else {
+            appendLog("BuildManifest.plist no encontrado; usando busqueda por nombre.")
+            return [:]
+        }
+
+        let data = try Data(contentsOf: manifestURL)
+        var plistFormat = PropertyListSerialization.PropertyListFormat.xml
+        guard let plist = try PropertyListSerialization.propertyList(from: data, options: [], format: &plistFormat) as? [String: Any],
+              let identities = plist["BuildIdentities"] as? [[String: Any]] else {
+            appendLog("BuildManifest.plist no se pudo leer; usando busqueda por nombre.")
+            return [:]
+        }
+
+        guard let identity = buildIdentity(for: selectedDevice.id, identities: identities) else {
+            appendLog("No se encontro BuildIdentity para \(selectedDevice.id); usando busqueda por nombre.")
+            return [:]
+        }
+
+        guard let manifest = identity["Manifest"] as? [String: Any] else {
+            return [:]
+        }
+
+        var paths: [ArtifactKind: String] = [:]
+        paths[.ibss] = manifestPath(for: ["iBSS", "DFU.iBSS"], in: manifest)
+        paths[.ibec] = manifestPath(for: ["iBEC", "DFU.iBEC"], in: manifest)
+        paths[.deviceTree] = manifestPath(for: ["DeviceTree"], in: manifest)
+        paths[.kernel] = manifestPath(for: ["KernelCache", "kernelcache"], in: manifest)
+        paths[.ramdisk] = manifestPath(for: ["RestoreRamDisk", "RamDisk"], in: manifest)
+        paths[.bootLogo] = manifestPath(for: ["AppleLogo", "BootLogo"], in: manifest)
+
+        if let ibssPath = paths[.ibss] {
+            appendLog("iBSS desde BuildManifest: \(ibssPath)")
+        }
+
+        return paths
+    }
+
+    private func buildIdentity(for deviceID: String, identities: [[String: Any]]) -> [String: Any]? {
+        identities.first { identity in
+            guard let info = identity["Info"] as? [String: Any] else { return false }
+
+            if let productType = info["ProductType"] as? String, productType == deviceID {
+                return true
+            }
+
+            if let supportedProductTypes = info["SupportedProductTypes"] as? [String], supportedProductTypes.contains(deviceID) {
+                return true
+            }
+
+            if let supportedProductTypes = info["SupportedProductTypes"] as? String, supportedProductTypes == deviceID {
+                return true
+            }
+
+            return false
+        }
+    }
+
+    private func manifestPath(for names: [String], in manifest: [String: Any]) -> String? {
+        for name in names {
+            guard let entry = manifest[name] as? [String: Any] else { continue }
+
+            if let info = entry["Info"] as? [String: Any], let path = info["Path"] as? String {
+                return path
+            }
+
+            if let path = entry["Path"] as? String {
+                return path
+            }
+        }
+
+        return nil
     }
 
     private func bestMatch(for kind: ArtifactKind, in files: [URL]) -> URL? {
