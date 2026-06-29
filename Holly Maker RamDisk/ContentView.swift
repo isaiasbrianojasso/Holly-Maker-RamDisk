@@ -900,12 +900,13 @@ private struct ArtifactDashboard: View {
     let artifactBundle: ArtifactBundle
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 22) {
+        VStack(alignment: .leading, spacing: 18) {
             statusHeader
             stageList
             outputView
             logView
         }
+        .frame(maxWidth: .infinity, alignment: .topLeading)
         .panelStyle()
     }
 
@@ -931,7 +932,7 @@ private struct ArtifactDashboard: View {
     }
 
     private var stageList: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 10) {
             Text(L10n.text("panel.stages", "Stages"))
                 .font(.headline)
 
@@ -945,11 +946,14 @@ private struct ArtifactDashboard: View {
 
                     if stage != WorkflowStage.allCases.last {
                         Divider()
-                            .padding(.leading, 34)
+                            .padding(.leading, 42)
                     }
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: 8).fill(Color.secondary.opacity(0.06)))
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var outputView: some View {
@@ -959,12 +963,12 @@ private struct ArtifactDashboard: View {
 
             ScrollView(.horizontal) {
                 Text(artifactBundle.description)
-                    .font(.system(.callout, design: .monospaced))
+                    .font(.system(.footnote, design: .monospaced))
                     .padding(12)
-                    .frame(minHeight: 160, alignment: .topLeading)
+                    .frame(maxWidth: .infinity, minHeight: 118, alignment: .topLeading)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: 8).fill(Color.secondary.opacity(0.10)))
+            .frame(maxWidth: .infinity, minHeight: 118, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: 8).fill(Color.secondary.opacity(0.08)))
         }
     }
 
@@ -975,12 +979,12 @@ private struct ArtifactDashboard: View {
 
             ScrollView(.horizontal) {
                 Text(logText)
-                    .font(.system(.callout, design: .monospaced))
+                    .font(.system(.footnote, design: .monospaced))
                     .padding(12)
-                    .frame(minHeight: 110, alignment: .topLeading)
+                    .frame(maxWidth: .infinity, minHeight: 96, alignment: .topLeading)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: 8).fill(Color.secondary.opacity(0.10)))
+            .frame(maxWidth: .infinity, minHeight: 96, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: 8).fill(Color.secondary.opacity(0.08)))
         }
     }
 
@@ -999,20 +1003,25 @@ private struct StageRow: View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: iconName)
                 .foregroundColor(iconColor)
-                .frame(width: 22)
-                .padding(.top, 2)
+                .frame(width: 22, height: 22)
+                .padding(.top, 1)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(stage.title)
                     .font(.subheadline.weight(.semibold))
+                    .lineLimit(1)
 
                 Text(stage.detail)
                     .font(.footnote)
                     .foregroundColor(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(.vertical, 10)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 9)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 6).fill(isCurrent ? Color.accentColor.opacity(0.10) : Color.clear))
     }
 
     private var iconName: String {
