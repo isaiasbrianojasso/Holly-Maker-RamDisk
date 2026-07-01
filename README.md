@@ -1,0 +1,1 @@
+Este proyecto es para desarrollar RAMDISK para herramientas que lo requieran, simplfica muchos pasos para crear los archivos necesarios pero todavia esta en desarrollo ire subiendo gradualmente mis avances gracias por su apollo.
